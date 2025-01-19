@@ -1,3 +1,5 @@
-Flask
-gradientai
-Gunicorn
+flask
+tensorflow
+spacy
+fitz
+PyMuPDF

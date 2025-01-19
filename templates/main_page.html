@@ -5,51 +5,147 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
+  <title>CareerCraft: AI Career Navigator</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 
 <body>
   <section class="showcase">
     <header>
-      <h2 class="logo">Travel</h2>
+      <h2 class="logo">CareerCraft</h2>
       <div class="toggle"></div>
     </header>
-    <video src="static\pexels-google-deepmind-18069235 (Original).mp4" muted loop autoplay></video>
+    <video src="static/pexels-google-deepmind-18069235 (Original).mp4" muted loop autoplay></video>
     <div class="overlay"></div>
     <div class="text">
-      <h2>Never Stop To </h2>
-      <h3>Exploring The World</h3>
-      <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
-        tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
-        quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo
-        consequat.</p>
-      <a href="#">Explore</a>
+      <h2>Shape Your Future</h2>
+      <h3>Explore the Career Path That's Right for You</h3>
+      <p>Discover career opportunities based on your skills, degree, and interests with AI-powered recommendations.</p>
+      <a href="#career-form">Get Started</a> <!-- Link to the career form section -->
     </div>
     <ul class="social">
-      <li><a href="#"><img src="https://i.ibb.co/x7P24fL/facebook.png"></a></li>
-      <li><a href="#"><img src="https://i.ibb.co/Wnxq2Nq/twitter.png"></a></li>
-      <li><a href="#"><img src="https://i.ibb.co/ySwtH4B/instagram.png"></a></li>
+      <li><a href="#"><img src="https://i.ibb.co/x7P24fL/facebook.png" alt="Facebook"></a></li>
+      <li><a href="#"><img src="https://i.ibb.co/Wnxq2Nq/twitter.png" alt="Twitter"></a></li>
+      <li><a href="#"><img src="https://i.ibb.co/ySwtH4B/instagram.png" alt="Instagram"></a></li>
     </ul>
   </section>
+
   <div class="menu">
     <ul>
-      <li><a href="#">Home</a></li>
-      <li><a href="#">News</a></li>
-      <li><a href="#">Destination</a></li>
+      <li><a href="/">Home</a></li>
+      <li><a href="#career-form">Career Suggestions</a></li> <!-- Link to Career Suggestions -->
       <li><a href="#">Blog</a></li>
       <li><a href="#">Contact</a></li>
     </ul>
   </div>
-  <script>
-    const menuToggle = document.querySelector('.toggle');
-    const showcase = document.querySelector('.showcase');
 
-    menuToggle.addEventListener('click', () => {
-    menuToggle.classList.toggle('active');
-    showcase.classList.toggle('active');
-})
+  <section id="career-form">
+    <h1>Get Career Suggestions</h1>
+
+    <form id="career-form" method="POST" enctype="multipart/form-data">
+      <!-- Resume Upload Section -->
+      <label for="resume">Upload Resume (PDF):</label>
+      <input type="file" id="resume" name="resume" accept=".pdf"><br>
+
+      <h3>Or Enter Your Details Manually</h3>
+
+      <input type="text" id="interests" name="interests" placeholder="Interests">
+      <input type="text" id="skills" name="skills" placeholder="Skills">
+      <input type="text" id="degree" name="degree" placeholder="Degree">
+      <input type="text" id="working" name="working" placeholder="Employment Status">
+      <input type="text" id="specialization" name="specialization" placeholder="Specialization">
+      <input type="text" id="percentage" name="percentage" placeholder="Percentage / CGPA">
+      <input type="text" id="certifications" name="certifications" placeholder="Certifications">
+
+      <button type="submit">Get Career Path</button>
+    </form>
+
+    <div id="loading" class="loading" style="display:none;">Loading... Please wait while we process your request.</div>
+
+    <div id="output-box" class="output-box" style="display:none;">
+      <h2>Suggested Career Path:</h2>
+      <p id="generated-output"></p>
+    </div>
+
+    <div id="feedback-box" class="feedback-box" style="display:none;">
+      <h3>Was this suggestion helpful?</h3>
+      <textarea id="feedback-text" placeholder="Your feedback here..."></textarea>
+      <button id="submit-feedback">Submit Feedback</button>
+    </div>
+  </section>
+
+  <script>
+    // Handling form submission to get career prediction
+    document.getElementById('career-form').addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      // Show loading indicator while waiting for prediction
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('output-box').style.display = 'none';
+      document.getElementById('feedback-box').style.display = 'none';
+
+      const formData = new FormData(this);
+      const data = {
+        skills: formData.get('skills'),
+        degree: formData.get('degree'),
+        interests: formData.get('interests'),
+        working: formData.get('working'),
+        specialization: formData.get('specialization'),
+        percentage: formData.get('percentage'),
+        certifications: formData.get('certifications'),
+      };
+
+      fetch('/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('output-box').style.display = 'block';
+          document.getElementById('generated-output').innerText = data.suggested_career;
+
+          // Display feedback form
+          document.getElementById('feedback-box').style.display = 'block';
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          document.getElementById('loading').innerText = 'Error processing your request. Please try again.';
+        });
+    });
+
+    // Handle feedback submission
+    document.getElementById('submit-feedback').addEventListener('click', function () {
+      const feedback = document.getElementById('feedback-text').value;
+
+      if (feedback) {
+        const data = {
+          skills: document.getElementById('skills').value,
+          degree: document.getElementById('degree').value,
+          career_feedback: feedback
+        };
+
+        fetch('/feedback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
+        })
+          .then(response => response.json())
+          .then(data => {
+            alert(data.message);
+          })
+          .catch(error => console.error('Error:', error));
+      } else {
+        alert('Please provide your feedback.');
+      }
+    });
   </script>
+
 </body>
 
 </html>

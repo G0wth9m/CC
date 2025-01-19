@@ -3,137 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Career Recommender</title>
-  <style>
-  @import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Poppins', san-serif;
-  }
+    <title>CareerCraft: Your AI Career Navigator</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
 
-  body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    flex-direction: column;
-    gap: 30px;
-    /* background: #222; */
-    /* background-image: url('abc.jpg') center center fixed; */
-    /* background-size: cover; */
-  }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            flex-direction: column;
+            gap: 20px;
+            background: linear-gradient(90deg, #000, #222);
+            color: white;
+        }
 
-  .input {
-    width: 600px;
-    background-color: #1a1a1a;
-    border: none;
-    padding: 10px;
-    border-radius: 10px;
-    outline: none;
-    color: white;
-  }
+        h1 {
+            color: #59D5E0;
+            text-align: center;
+        }
 
-  .input:focus {
-    animation: rotateShadow 2s infinite linear;
-  }
+        form {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0px 0px 15px rgba(255, 255, 255, 0.1);
+        }
 
-  .output-box {
-    background-color: black;
-    color: white;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 15px;
-    margin: 10px auto;  /* Center the box horizontally */
-    max-width: 600px;  /* Set a maximum width for the box */
-  }
+        .input {
+            width: 100%;
+            background-color: #2a2a2a;
+            border: none;
+            padding: 12px;
+            margin: 5px 0;
+            border-radius: 8px;
+            outline: none;
+            color: white;
+        }
 
-  .output-box h2 {
-    color: #007bff;
-  }
+        .button1 {
+            background-color: #7F27FF;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
 
-  .button1 {
-    background-color: #7F27FF;
-    border: none;
-    width: 600px;
-    color: white;
-    padding: 15px 32px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
-    margin: 4px 2px;
-    cursor: pointer;
-    border-radius: 12px;
-  }
+        .button1:hover {
+            background-color: #5a1ecc;
+        }
 
-  @keyframes rotateShadow {
-    0% {
-      box-shadow: -2px -2px 0px 0px #aa00ff, 2px 2px 0px 0px #3700ff;
-    }
-    25% {
-      box-shadow: -2px 2px 0px 0px #aa00ff, 2px -2px 0px 0px #3700ff;
-    }
-    50% {
-      box-shadow: 2px 2px 0px 0px #aa00ff, -2px -2px 0px 0px #3700ff;
-    }
-    75% {
-      box-shadow: 2px -2px 0px 0px #aa00ff, -2px 2px 0px 0px #3700ff;
-    }
-    100% {
-      box-shadow: -2px -2px 0px 0px #aa00ff, 2px 2px 0px 0px #3700ff;
-    }
-  }
-  </style>
-  </head>
-<body style="background-image: linear-gradient(45deg, transparent 0%, transparent 46%,rgba(114, 114, 114,0.06) 46%, rgba(114, 114, 114,0.06) 70%,transparent 70%, transparent 100%),linear-gradient(135deg, transparent 0%, transparent 59%,rgba(114, 114, 114,0.06) 59%, rgba(114, 114, 114,0.06) 91%,transparent 91%, transparent 100%),linear-gradient(0deg, transparent 0%, transparent 15%,rgba(114, 114, 114,0.06) 15%, rgba(114, 114, 114,0.06) 40%,transparent 40%, transparent 100%),linear-gradient(90deg, rgb(0,0,0),rgb(0,0,0));">
-  <h1 style="color: #59D5E0; align-items: center; justify-content: center;">CareerCraft: Your AI Career Navigator</h1>
-      <form action="/" method="post">
-        <div>
-          <input type="text" id="interests" name="interests" class="input" required placeholder="Interests" />
-          <i></i>
-        </div><br>
+        .output-box {
+            background-color: black;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
+        }
 
-        <div>
-          <input type="text" id="skills" name="skills" class="input" placeholder="Skills" required />
-          <i></i>
-        </div><br>
+        .output-box h2 {
+            color: #007bff;
+        }
 
-        <div>
-          <input type="text" id="degree" name="degree" class="input" required placeholder="Degree" />
-          <i></i>
-        </div><br>
+        .feedback-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #333;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+        }
 
-        <div>
-          <input type="text" id="working" name="working" class="input" required placeholder="Working" />
-          <i></i>
-        </div><br>
+        .feedback-box textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            background-color: #2a2a2a;
+            color: white;
+            border: none;
+            resize: none;
+            height: 100px;
+        }
 
-        <div>
-          <input type="text" id="specialization" name="specialization" class="input" required placeholder="Specialization" />
-          <i></i>
-        </div><br>
+        .loading {
+            text-align: center;
+            color: #ffbf00;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
 
-        <div>
-          <input type="text" id="percentage" name="percentage" class="input" required placeholder="Percentage" />
-          <i></i>
-        </div><br>
+    <h1>CareerCraft: Your AI Career Navigator</h1>
 
-        <div>
-          <input type="text" id="certifications" name="certifications" class="input" required placeholder="Certifications" />
-          <i></i>
-        </div><br>
+    <form id="career-form">
+        <!-- Resume Upload Section -->
+        <label for="resume">Upload Resume (PDF):</label>
+        <input type="file" id="resume" name="resume" accept=".pdf" class="input"><br>
+
+        <h3>Or Enter Your Details Manually</h3>
+
+        <input type="text" id="interests" name="interests" class="input" placeholder="Interests">
+        <input type="text" id="skills" name="skills" class="input" placeholder="Skills">
+        <input type="text" id="degree" name="degree" class="input" placeholder="Degree">
+        <input type="text" id="working" name="working" class="input" placeholder="Employment Status">
+        <input type="text" id="specialization" name="specialization" class="input" placeholder="Specialization">
+        <input type="text" id="percentage" name="percentage" class="input" placeholder="Percentage / CGPA">
+        <input type="text" id="certifications" name="certifications" class="input" placeholder="Certifications">
         
-        <div>
-          <input class="button1 fa-solid fa-arrow-right" type="submit" value="Predict ➡️">
-        </div>
-        </form>
-    {% if user_query %}
-        <div class="output-box">
+        <button type="submit" class="button1">Predict Career Path ➡️</button>
+    </form>
+
+    <div id="loading" class="loading" style="display:none;">Loading... Please wait while we process your request.</div>
+
+    <div id="output-box" class="output-box" style="display:none;">
         <h2>Suggested Career Path:</h2>
-        <p>{{ generated_output }}</p>
-        </div>
-    {% endif %}
+        <p id="generated-output"></p>
+    </div>
+
+    <div id="feedback-box" class="feedback-box" style="display:none;">
+        <h3>Was this suggestion helpful?</h3>
+        <textarea id="feedback-text" placeholder="Your feedback here..."></textarea>
+        <button id="submit-feedback" class="button1">Submit Feedback</button>
+    </div>
+
+    <script>
+        document.getElementById('career-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            // Display loading indicator
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('output-box').style.display = 'none';
+            document.getElementById('feedback-box').style.display = 'none';
+
+            const formData = new FormData(this);
+            const data = {
+                skills: formData.get('skills'),
+                degree: formData.get('degree'),
+                interests: formData.get('interests'),
+                working: formData.get('working'),
+                specialization: formData.get('specialization'),
+                percentage: formData.get('percentage'),
+                certifications: formData.get('certifications'),
+            };
+
+            // Send a POST request to predict the career
+            fetch('/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading and display the result
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('output-box').style.display = 'block';
+                document.getElementById('generated-output').innerText = data.suggested_career;
+
+                // Display feedback form
+                document.getElementById('feedback-box').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('loading').innerText = 'Error processing your request. Please try again.';
+            });
+        });
+
+        // Handle feedback submission
+        document.getElementById('submit-feedback').addEventListener('click', function() {
+            const feedback = document.getElementById('feedback-text').value;
+
+            if (feedback) {
+                const data = {
+                    skills: document.getElementById('skills').value,
+                    degree: document.getElementById('degree').value,
+                    career_feedback: feedback
+                };
+
+                fetch('/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                })
+                .catch(error => console.error('Error:', error));
+            } else {
+                alert('Please provide your feedback.');
+            }
+        });
+    </script>
+
 </body>
 </html>
