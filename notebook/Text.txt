@@ -1,0 +1,932 @@
+/workspaces/CC/.venv
+/workspaces/CC/ai
+/workspaces/CC/ai/__pycache__
+/workspaces/CC/ai/__pycache__/ai_model.cpython-312.pyc
+/workspaces/CC/ai/database
+/workspaces/CC/ai/database/__pycache__
+/workspaces/CC/ai/database/__pycache__/career_database.cpython-312.pyc
+/workspaces/CC/ai/database/__pycache__/db.cpython-312.pyc
+/workspaces/CC/ai/database/career_database.py
+import sqlite3  # Or any other DB connector you are using
+
+class CareerDatabase:
+    def __init__(self, db_name="career_recommender.db"):
+        self.db_name = db_name
+        self.conn = None
+        self.cursor = None
+    
+    def connect(self):
+        """Connect to the database."""
+        try:
+            self.conn = sqlite3.connect(self.db_name)  # Using SQLite as an example
+            self.cursor = self.conn.cursor()
+        except sqlite3.Error as e:
+            print(f"Error connecting to database: {e}")
+    
+    def create_table(self):
+        """Create the necessary table(s) if they do not exist."""
+        self.connect()
+        try:
+            self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                skills TEXT,
+                degree TEXT,
+                suggested_career TEXT
+            )
+            ''')
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Error creating table: {e}")
+    
+    def insert_user_data(self, skills, degree, suggested_career):
+        """Insert user data into the database."""
+        self.connect()
+        try:
+            self.cursor.execute('''
+            INSERT INTO users (skills, degree, suggested_career) 
+            VALUES (?, ?, ?)
+            ''', (skills, degree, suggested_career))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Error inserting data: {e}")
+    
+    def fetch_user_data(self):
+        """Fetch all users' data from the database."""
+        self.connect()
+        try:
+            self.cursor.execute('SELECT * FROM users')
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Error fetching data: {e}")
+            return []
+    
+    def close(self):
+        """Close the database connection."""
+        if self.conn:
+            self.conn.close()
+
+/workspaces/CC/ai/database/db.py
+import os
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
+from keras.models import Sequential
+from keras.layers import Dense, Dropout
+from keras.optimizers import Adam
+import keras
+import joblib
+from .career_database import CareerDatabase
+
+
+class AdvancedCareerRecommendationAI:
+    def __init__(self, model_file="advanced_career_model.h5", db_name="career_recommender.db"):
+        self.model_file = model_file
+        self.db_name = db_name
+        self.model = None
+        self.label_encoder = LabelEncoder()
+
+        # Create or connect to the database
+        self.db = CareerDatabase(db_name)
+
+        # Load existing model if it exists
+        if os.path.exists(self.model_file):
+            self.model = keras.models.load_model(self.model_file)
+        else:
+            self.build_model()
+
+    def prepare_data(self):
+        """Fetches data from the database and prepares it"""
+        data = self.db.fetch_all_data()
+
+        if not data:
+            raise ValueError("No data available in the database.")
+
+        # Extract features and labels from the data
+        skills = [item[1] for item in data]
+        degrees = [item[2] for item in data]
+        careers = [item[3] for item in data]
+
+        # Fit the label encoder on skills and degrees
+        self.label_encoder.fit(skills + degrees + careers)
+
+        # Encode features and labels
+        skills_encoded = self.label_encoder.transform(skills)
+        degrees_encoded = self.label_encoder.transform(degrees)
+        careers_encoded = self.label_encoder.transform(careers)
+
+        # Features and labels
+        X = np.column_stack((skills_encoded, degrees_encoded))
+        y = careers_encoded
+
+        return X, y
+
+    def build_model(self):
+        """Builds the deep learning model using Keras"""
+        X, y = self.prepare_data()
+
+        # Build the model
+        self.model = Sequential()
+        self.model.add(Dense(64, input_dim=2, activation='relu'))  # 2 input features: skills and degree
+        self.model.add(Dropout(0.2))  # Dropout for regularization
+        self.model.add(Dense(32, activation='relu'))
+        self.model.add(Dense(len(set(y)), activation='softmax'))  # Output layer (number of unique careers)
+
+        # Compile the model
+        self.model.compile(loss='sparse_categorical_crossentropy', optimizer=Adam(), metrics=['accuracy'])
+
+        # Train the model
+        self.model.fit(X, y, epochs=50, batch_size=32, verbose=1)
+
+        # Save the model after training
+        self.model.save(self.model_file)
+
+    def train_model(self):
+        """Retrains the model on available data"""
+        X, y = self.prepare_data()
+
+        # Train the model
+        self.model.fit(X, y, epochs=50, batch_size=32, verbose=1)
+
+        # Save the model after training
+        self.model.save(self.model_file)
+
+    def predict(self, user_data):
+        """Predicts the career based on user input"""
+        skills, degree = user_data['skills'], user_data['degree']
+
+        # Encode the user data
+        skills_encoded = self.label_encoder.transform([skills])[0]
+        degree_encoded = self.label_encoder.transform([degree])[0]
+
+        # Predict the career path
+        prediction = self.model.predict(np.array([[skills_encoded, degree_encoded]]))
+        career_prediction = np.argmax(prediction)  # Get the index with the highest probability
+
+        # Decode the prediction back into the original label
+        career_path = self.label_encoder.inverse_transform([career_prediction])[0]
+
+        return career_path
+
+    def update_data(self, user_data, career_feedback):
+        """Updates the database with new user data and retrains the model"""
+        skills = user_data['skills']
+        degree = user_data['degree']
+        career = career_feedback
+
+        # Insert new data into the database
+        self.db.insert_data(skills, degree, career)
+
+        # Retrain the model with updated data
+        self.train_model()
+
+    def learn_from_feedback(self, user_data, career_feedback):
+        """Allows the AI to learn from user feedback"""
+        # Update the database with user feedback
+        self.update_data(user_data, career_feedback)
+
+        # Retrain the model with updated data
+        self.train_model()
+
+    def close_connection(self):
+        """Closes the database connection"""
+        self.db.close_connection()
+
+
+# Example usage:
+if __name__ == "__main__":
+    ai = AdvancedCareerRecommendationAI()
+
+    # Train the model (initial training)
+    ai.train_model()
+
+    # Make a career suggestion based on user input
+    user_data = {"skills": "Python", "degree": "Bachelors"}
+    suggested_career = ai.predict(user_data)
+    print(f"Suggested Career Path: {suggested_career}")
+
+    # Simulate user feedback
+    user_feedback = "Data Scientist"  # Assume the user agrees with the suggestion
+    ai.learn_from_feedback(user_data, user_feedback)
+
+    # Close the database connection
+    ai.close_connection()
+
+/workspaces/CC/ai/ai_model.py
+import os
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from keras.models import Sequential
+from keras.layers import Dense, Dropout
+from keras.optimizers import Adam
+import keras
+
+class AdvancedCareerRecommendationAI:
+    def __init__(self, model_file="advanced_career_model.h5", data_file="/workspaces/CC/data/career_recommender.csv"):
+        self.model_file = model_file
+        self.data_file = data_file
+        self.model = None
+        self.label_encoder = LabelEncoder()
+
+        # Load the dataset once
+        self.df = pd.read_csv(self.data_file)
+
+        # Load existing model if it exists
+        if os.path.exists(self.model_file):
+            self.model = keras.models.load_model(self.model_file)
+        else:
+            self.build_model()
+
+        # Check if data file exists, otherwise create it
+        if not os.path.exists(self.data_file):
+            self.create_initial_data()
+
+    def create_initial_data(self):
+        """Creates initial dataset if it does not exist"""
+        initial_data = {
+            "skills": ["Python", "Machine Learning", "Data Science", "Java", "SQL", "Cloud Computing",
+                       "R", "AI", "Web Development", "C++", "DevOps", "Big Data", "Cybersecurity",
+                       "Blockchain", "Full Stack Development", "Artificial Intelligence", "JavaScript",
+                       "Data Engineering", "IoT", "Statistics", "Software Development", "Business Intelligence",
+                       "Computer Vision"],
+            "degree": ["Bachelors", "Masters", "PhD", "Bachelors", "Masters", "Bachelors", "Bachelors",
+                       "Masters", "Bachelors", "Bachelors", "Masters", "Masters", "Bachelors", "PhD",
+                       "Bachelors", "PhD", "Bachelors", "Bachelors", "Masters", "Bachelors", "PhD", "Masters"],
+            "career": ["Data Scientist", "ML Engineer", "Data Scientist", "Software Developer", "Data Analyst",
+                       "Cloud Engineer", "Data Scientist", "AI Engineer", "Web Developer", "Software Engineer",
+                       "DevOps Engineer", "Data Engineer", "Cybersecurity Analyst", "Blockchain Developer",
+                       "Full Stack Developer", "AI Researcher", "Front End Developer", "Data Engineer", "IoT Developer",
+                       "Data Analyst", "Software Architect", "BI Analyst", "AI Researcher"]
+        }
+
+        df = pd.DataFrame(initial_data)
+        df.to_csv(self.data_file, index=False)
+
+    def build_model(self):
+        """Builds the deep learning model using Keras"""
+        # Check for expected columns in self.df (already loaded)
+        required_columns = ['Skills', 'Degree', 'Career']
+        missing_columns = [col for col in required_columns if col not in self.df.columns]
+        if missing_columns:
+            raise KeyError(f"The following columns are missing: {', '.join(missing_columns)}")
+        else:
+            print("Columns are correctly present:", self.df.columns)
+
+        # Fit the label encoder on the 'career' column
+        self.label_encoder.fit(self.df['career'])
+
+        # Build the model
+        self.model = Sequential()
+        self.model.add(Dense(64, input_dim=2, activation='relu'))  # 2 input features: skills and degree
+        self.model.add(Dropout(0.2))  # Dropout for regularization
+        self.model.add(Dense(32, activation='relu'))
+        self.model.add(Dense(len(self.label_encoder.classes_), activation='softmax'))  # Output layer
+
+        # Compile the model
+        self.model.compile(loss='sparse_categorical_crossentropy', optimizer=Adam(), metrics=['accuracy'])
+
+    def prepare_data(self):
+        """Prepares the data by encoding skills and degree"""
+        # Encode the skills and degree as features
+        self.label_encoder.fit(self.df['skills'].append(self.df['degree']))  # Fit on both columns
+
+        self.df['skills'] = self.label_encoder.transform(self.df['skills'])
+        self.df['degree'] = self.label_encoder.transform(self.df['degree'])
+
+        # Features and labels
+        X = self.df[['skills', 'degree']]
+        y = self.df['career']
+
+        return X, y
+
+    def train_model(self):
+        """Trains the model on available data"""
+        X, y = self.prepare_data()
+
+        # Split the data into train and test sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+        # Train the model
+        self.model.fit(X_train, y_train, epochs=50, batch_size=32, verbose=1)
+
+        # Evaluate the model
+        score = self.model.evaluate(X_test, y_test, verbose=0)
+        print(f"Model Accuracy: {score[1] * 100:.2f}%")
+
+        # Save the model after training
+        self.model.save(self.model_file)
+
+    def predict(self, user_data):
+        """Predicts the career based on user input"""
+        skills, degree = user_data['skills'], user_data['degree']
+
+        # Convert user data into the format the model understands
+        skills_encoded = self.label_encoder.transform([skills])[0]
+        degree_encoded = self.label_encoder.transform([degree])[0]
+
+        # Predict the career path
+        prediction = self.model.predict(np.array([[skills_encoded, degree_encoded]]))
+        career_prediction = np.argmax(prediction)  # Get the index with the highest probability
+
+        # Decode the prediction back into the original label
+        career_path = self.label_encoder.inverse_transform([career_prediction])[0]
+
+        return career_path
+
+    def update_data(self, user_data, career_feedback):
+        """Updates the dataset with new user data and retrains the model"""
+        new_data = {
+            "skills": user_data['skills'],
+            "degree": user_data['degree'],
+            "career": career_feedback
+        }
+
+        df = pd.read_csv(self.data_file)
+        new_row = pd.DataFrame(new_data, index=[len(df)])
+        df = df.append(new_row, ignore_index=True)
+
+        # Save updated data
+        df.to_csv(self.data_file, index=False)
+
+        # Retrain the model with updated data
+        self.train_model()
+
+    def learn_from_feedback(self, user_data, career_feedback):
+        """Allows the AI to learn from user feedback"""
+        # Update the data with user feedback
+        self.update_data(user_data, career_feedback)
+
+        # Re-train the model with updated data
+        self.train_model()
+
+
+# Example usage:
+if __name__ == "__main__":
+    ai = AdvancedCareerRecommendationAI()
+
+    # Train the model (initial training)
+    ai.train_model()
+
+    # Make a career suggestion based on user input
+    user_data = {"skills": "Python", "degree": "Bachelors"}
+    suggested_career = ai.predict(user_data)
+    print(f"Suggested Career Path: {suggested_career}")
+
+    # Simulate user feedback
+    user_feedback = "Data Scientist"  # Assume the user agrees with the suggestion
+    ai.learn_from_feedback(user_data, user_feedback)
+
+/workspaces/CC/data
+/workspaces/CC/data/career_recommender.csv
+/workspaces/CC/data/career_recommendations.xlsx
+/workspaces/CC/notebook
+/workspaces/CC/notebook/Carrer_Recomandation.ipynb
+/workspaces/CC/notebook/Text
+/workspaces/CC/templates
+/workspaces/CC/templates/home.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareerCraft: Your AI Career Navigator</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            flex-direction: column;
+            gap: 20px;
+            background: linear-gradient(90deg, #000, #222);
+            color: white;
+        }
+
+        h1 {
+            color: #59D5E0;
+            text-align: center;
+        }
+
+        form {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0px 0px 15px rgba(255, 255, 255, 0.1);
+        }
+
+        .input {
+            width: 100%;
+            background-color: #2a2a2a;
+            border: none;
+            padding: 12px;
+            margin: 5px 0;
+            border-radius: 8px;
+            outline: none;
+            color: white;
+        }
+
+        .button1 {
+            background-color: #7F27FF;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
+
+        .button1:hover {
+            background-color: #5a1ecc;
+        }
+
+        .output-box {
+            background-color: black;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        .output-box h2 {
+            color: #007bff;
+        }
+
+        .feedback-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #333;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        .feedback-box textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            background-color: #2a2a2a;
+            color: white;
+            border: none;
+            resize: none;
+            height: 100px;
+        }
+
+        .loading {
+            text-align: center;
+            color: #ffbf00;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>CareerCraft: Your AI Career Navigator</h1>
+
+    <form id="career-form">
+        <!-- Resume Upload Section -->
+        <label for="resume">Upload Resume (PDF):</label>
+        <input type="file" id="resume" name="resume" accept=".pdf" class="input"><br>
+
+        <h3>Or Enter Your Details Manually</h3>
+
+        <input type="text" id="interests" name="interests" class="input" placeholder="Interests">
+        <input type="text" id="skills" name="skills" class="input" placeholder="Skills">
+        <input type="text" id="degree" name="degree" class="input" placeholder="Degree">
+        <input type="text" id="working" name="working" class="input" placeholder="Employment Status">
+        <input type="text" id="specialization" name="specialization" class="input" placeholder="Specialization">
+        <input type="text" id="percentage" name="percentage" class="input" placeholder="Percentage / CGPA">
+        <input type="text" id="certifications" name="certifications" class="input" placeholder="Certifications">
+        
+        <button type="submit" class="button1">Predict Career Path ➡️</button>
+    </form>
+
+    <div id="loading" class="loading" style="display:none;">Loading... Please wait while we process your request.</div>
+
+    <div id="output-box" class="output-box" style="display:none;">
+        <h2>Suggested Career Path:</h2>
+        <p id="generated-output"></p>
+    </div>
+
+    <div id="feedback-box" class="feedback-box" style="display:none;">
+        <h3>Was this suggestion helpful?</h3>
+        <textarea id="feedback-text" placeholder="Your feedback here..."></textarea>
+        <button id="submit-feedback" class="button1">Submit Feedback</button>
+    </div>
+
+    <script>
+        document.getElementById('career-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            // Display loading indicator
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('output-box').style.display = 'none';
+            document.getElementById('feedback-box').style.display = 'none';
+
+            const formData = new FormData(this);
+            const data = {
+                skills: formData.get('skills'),
+                degree: formData.get('degree'),
+                interests: formData.get('interests'),
+                working: formData.get('working'),
+                specialization: formData.get('specialization'),
+                percentage: formData.get('percentage'),
+                certifications: formData.get('certifications'),
+            };
+
+            // Send a POST request to predict the career
+            fetch('/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading and display the result
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('output-box').style.display = 'block';
+                document.getElementById('generated-output').innerText = data.suggested_career;
+
+                // Display feedback form
+                document.getElementById('feedback-box').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('loading').innerText = 'Error processing your request. Please try again.';
+            });
+        });
+
+        // Handle feedback submission
+        document.getElementById('submit-feedback').addEventListener('click', function() {
+            const feedback = document.getElementById('feedback-text').value;
+
+            if (feedback) {
+                const data = {
+                    skills: document.getElementById('skills').value,
+                    degree: document.getElementById('degree').value,
+                    career_feedback: feedback
+                };
+
+                fetch('/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                })
+                .catch(error => console.error('Error:', error));
+            } else {
+                alert('Please provide your feedback.');
+            }
+        });
+    </script>
+
+</body>
+</html>
+
+/workspaces/CC/templates/main_page.html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CareerCraft: AI Career Navigator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+  <section class="showcase">
+    <header>
+      <h2 class="logo">CareerCraft</h2>
+      <div class="toggle"></div>
+    </header>
+    <video src="static/pexels-google-deepmind-18069235 (Original).mp4" muted loop autoplay></video>
+    <div class="overlay"></div>
+    <div class="text">
+      <h2>Shape Your Future</h2>
+      <h3>Explore the Career Path That's Right for You</h3>
+      <p>Discover career opportunities based on your skills, degree, and interests with AI-powered recommendations.</p>
+      <a href="#career-form">Get Started</a> <!-- Link to the career form section -->
+    </div>
+    <ul class="social">
+      <li><a href="#"><img src="https://i.ibb.co/x7P24fL/facebook.png" alt="Facebook"></a></li>
+      <li><a href="#"><img src="https://i.ibb.co/Wnxq2Nq/twitter.png" alt="Twitter"></a></li>
+      <li><a href="#"><img src="https://i.ibb.co/ySwtH4B/instagram.png" alt="Instagram"></a></li>
+    </ul>
+  </section>
+
+  <div class="menu">
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="#career-form">Career Suggestions</a></li> <!-- Link to Career Suggestions -->
+      <li><a href="#">Blog</a></li>
+      <li><a href="#">Contact</a></li>
+    </ul>
+  </div>
+
+  <section id="career-form">
+    <h1>Get Career Suggestions</h1>
+
+    <form id="career-form" method="POST" enctype="multipart/form-data">
+      <!-- Resume Upload Section -->
+      <label for="resume">Upload Resume (PDF):</label>
+      <input type="file" id="resume" name="resume" accept=".pdf"><br>
+
+      <h3>Or Enter Your Details Manually</h3>
+
+      <input type="text" id="interests" name="interests" placeholder="Interests">
+      <input type="text" id="skills" name="skills" placeholder="Skills">
+      <input type="text" id="degree" name="degree" placeholder="Degree">
+      <input type="text" id="working" name="working" placeholder="Employment Status">
+      <input type="text" id="specialization" name="specialization" placeholder="Specialization">
+      <input type="text" id="percentage" name="percentage" placeholder="Percentage / CGPA">
+      <input type="text" id="certifications" name="certifications" placeholder="Certifications">
+
+      <button type="submit">Get Career Path</button>
+    </form>
+
+    <div id="loading" class="loading" style="display:none;">Loading... Please wait while we process your request.</div>
+
+    <div id="output-box" class="output-box" style="display:none;">
+      <h2>Suggested Career Path:</h2>
+      <p id="generated-output"></p>
+    </div>
+
+    <div id="feedback-box" class="feedback-box" style="display:none;">
+      <h3>Was this suggestion helpful?</h3>
+      <textarea id="feedback-text" placeholder="Your feedback here..."></textarea>
+      <button id="submit-feedback">Submit Feedback</button>
+    </div>
+  </section>
+
+  <script>
+    // Handling form submission to get career prediction
+    document.getElementById('career-form').addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      // Show loading indicator while waiting for prediction
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('output-box').style.display = 'none';
+      document.getElementById('feedback-box').style.display = 'none';
+
+      const formData = new FormData(this);
+      const data = {
+        skills: formData.get('skills'),
+        degree: formData.get('degree'),
+        interests: formData.get('interests'),
+        working: formData.get('working'),
+        specialization: formData.get('specialization'),
+        percentage: formData.get('percentage'),
+        certifications: formData.get('certifications'),
+      };
+
+      fetch('/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('output-box').style.display = 'block';
+          document.getElementById('generated-output').innerText = data.suggested_career;
+
+          // Display feedback form
+          document.getElementById('feedback-box').style.display = 'block';
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          document.getElementById('loading').innerText = 'Error processing your request. Please try again.';
+        });
+    });
+
+    // Handle feedback submission
+    document.getElementById('submit-feedback').addEventListener('click', function () {
+      const feedback = document.getElementById('feedback-text').value;
+
+      if (feedback) {
+        const data = {
+          skills: document.getElementById('skills').value,
+          degree: document.getElementById('degree').value,
+          career_feedback: feedback
+        };
+
+        fetch('/feedback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
+        })
+          .then(response => response.json())
+          .then(data => {
+            alert(data.message);
+          })
+          .catch(error => console.error('Error:', error));
+      } else {
+        alert('Please provide your feedback.');
+      }
+    });
+  </script>
+
+</body>
+
+</html>
+
+/workspaces/CC/uploads
+/workspaces/CC/.gitignore
+/workspaces/CC/app.py
+from flask import Flask, render_template, request, jsonify
+import os
+import fitz  # PyMuPDF for PDF extraction
+import spacy
+from ai.database.career_database import CareerDatabase  # Import the CareerDatabase class
+from ai.ai_model import AdvancedCareerRecommendationAI  # Import your AI model
+
+# Initialize Flask app
+app = Flask(__name__, static_folder='templates/static')
+
+# Ensure the "uploads" directory exists
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+# Load NLP model (spaCy)
+nlp = spacy.load("en_core_web_sm")
+
+# Initialize the AI model and the database
+ai_model = AdvancedCareerRecommendationAI()
+db = CareerDatabase()  # Initialize the CareerDatabase
+
+# Function to extract text from PDFs
+def extract_text_from_pdf(pdf_path):
+    text = ""
+    try:
+        with fitz.open(pdf_path) as doc:
+            for page in doc:
+                text += page.get_text("text") + "\n"
+        return text
+    except Exception as e:
+        return f"Error reading PDF: {str(e)}"
+
+# Function to extract skills, education, and work experience
+def extract_resume_info(text):
+    doc = nlp(text)
+    skills, education, experience = [], [], []
+
+    skill_keywords = ["Python", "Java", "SQL", "Machine Learning", "Data Science", "Deep Learning"]
+    education_keywords = ["Bachelor", "Master", "PhD", "BSc", "MSc", "MBA"]
+    experience_keywords = ["Developer", "Engineer", "Manager", "Intern"]
+
+    for ent in doc.ents:
+        if any(edu in ent.text for edu in education_keywords) and ent.text not in education:
+            education.append(ent.text)
+        elif any(skill in ent.text for skill in skill_keywords) and ent.text not in skills:
+            skills.append(ent.text)
+        elif any(exp in ent.text for exp in experience_keywords) and ent.text not in experience:
+            experience.append(ent.text)
+
+    return {
+        "skills": ", ".join(set(skills)),
+        "education": ", ".join(set(education)),
+        "experience": ", ".join(set(experience)),
+    }
+
+# Route for predicting career based on user input (skills, degree)
+@app.route("/predict", methods=["POST"])
+def predict_career():
+    # Extract form data
+    data = request.get_json()
+    skills = data.get("skills")
+    degree = data.get("degree")
+
+    # Create an instance of the database class
+    db = CareerDatabase()
+
+    # Create the necessary table if it doesn't exist
+    db.create_table()
+
+    # Predict career path using AI model
+    suggested_career = ai_model.predict({"skills": skills, "degree": degree})
+
+    # Optionally save the data to the database
+    db.insert_user_data(skills, degree, suggested_career)
+
+    # Fetch all user data (just as an example)
+    user_data = db.fetch_user_data()
+
+    # Close the database connection once done
+    db.close()
+
+    # Respond with the career suggestion
+    return jsonify({
+        "suggested_career": suggested_career,
+        "user_data": user_data,
+    })
+
+# Route for uploading resume and extracting information
+@app.route("/upload_resume", methods=["POST"])
+def upload_resume():
+    if "resume" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files["resume"]
+    if file.filename == "":
+        return jsonify({"error": "Empty file"}), 400
+
+    file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+
+    try:
+        file.save(file_path)
+        extracted_text = extract_text_from_pdf(file_path)
+        resume_info = extract_resume_info(extracted_text)
+        return jsonify(resume_info)
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+# Route for the home page (handling both resume upload and form submission)
+@app.route("/", methods=["GET", "POST"])
+def index():
+    if request.method == "POST":
+        try:
+            # Check for uploaded resume
+            if "resume" in request.files:
+                file = request.files["resume"]
+                if file.filename != "":
+                    file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+                    file.save(file_path)
+
+                    extracted_text = extract_text_from_pdf(file_path)
+                    resume_info = extract_resume_info(extracted_text)
+
+                    # Extract additional fields
+                    interests = request.form.get("interests", "")
+                    skills = resume_info["skills"] if resume_info["skills"] else request.form.get("skills", "")
+                    degree = resume_info["education"] if resume_info["education"] else request.form.get("degree", "")
+                    certifications = resume_info["experience"] if resume_info["experience"] else request.form.get("certifications", "")
+                else:
+                    raise ValueError("No file uploaded or file name is empty.")
+            else:
+                # Manual input handling
+                interests = request.form.get("interests", "")
+                skills = request.form.get("skills", "")
+                degree = request.form.get("degree", "")
+                certifications = request.form.get("certifications", "")
+
+            working = request.form.get("working", "")
+            specialization = request.form.get("specialization", "")
+            percentage = request.form.get("percentage", "")
+
+            user_data = {
+                "skills": skills,
+                "degree": degree,
+            }
+
+            # Predict career path using AI model
+            suggested_career = ai_model.predict(user_data)
+            
+            # Optionally save the data to the database
+            db.insert_data(skills, degree, suggested_career)
+
+            # Learn from the feedback if provided
+            user_feedback = request.form.get("feedback", "")
+            if user_feedback:
+                ai_model.learn_from_feedback(user_data, user_feedback)
+
+            return render_template("home.html", user_query=user_data, generated_output=suggested_career)
+
+        except Exception as e:
+            return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+    return render_template("home.html", user_query=None, generated_output=None)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+/workspaces/CC/requirements.txt
